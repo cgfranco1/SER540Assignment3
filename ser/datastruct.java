@@ -43,7 +43,6 @@ class datastruct {
         this.gpslongaccl = gpslongaccl;
     }
 
-
     public double getSpeed() { // get speed
         return this.speed;
     }
