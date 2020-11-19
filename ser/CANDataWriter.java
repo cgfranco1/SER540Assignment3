@@ -14,21 +14,24 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class CANDataWriter {
     /* Hashmap used to contain all the messages in "CANmessages.trc" which have
      * a frame ID that matches one of the IDs listed in "CAN Frames Info.txt".
      */
-    private static HashMap<Double, CANmessage> canMsgMap;
+    private static Map<Double, CANmessage> canMsgMap;
     //Buffered reader used to read in "CANmessages.trc" and "GPS Track.htm".
     private static BufferedReader br;
+    //Array used to contain the GLatLng values obtained from "GPS Track.htm".
+    private static String[] gpsCoords;
     //CANframes used to query data.
     private static CANframe wheelAngle, displaySpeed, yawRate, longAcc, latAcc;
+
     public static void main(String args[]) throws IOException {
         //Initializing canMsgMap.
-        canMsgMap = new HashMap<Double, CANmessage>();
+        canMsgMap = new LinkedHashMap<Double, CANmessage>();
 
         /* All values for the next 5 CANframe objects have been obtained from 
          * the "CAN Frames Info.txt" file.
@@ -37,7 +40,7 @@ public class CANDataWriter {
         byte[] wheelByteRange = {1, 5, 2, 0};
         double[] wheelValRange = {-2048.0, 2047.0};
         wheelAngle = new CANframe("0003", wheelByteRange, (byte) 14, 
-            "Steering wheel angle", 0x3FFF, "°",wheelValRange, 0.5);
+            "Steering wheel angle", 0x3FFF, "degrees", wheelValRange, 0.5);
 
         //Constructing CANframe obj of the displayed vehicle speed.
         byte[] speedByteRange = {1, 3, 2, 0};
@@ -49,25 +52,27 @@ public class CANDataWriter {
         byte[] yawByteRange = {1, 7, 2, 0};
         double[] yawValRange = {-327.68, 327.66};
         yawRate = new CANframe("0245", yawByteRange, (byte) 16, 
-            "Vehicle yaw rate", 0xFFFF, "°/s", yawValRange, 0.01);
+            "Vehicle yaw rate", 0xFFFF, "degrees/s", yawValRange, 0.01);
 
         //Constructing CANframe obj of the vehicle longitudinal acceleration.
         byte[] longByteRange = {5, 7, 5, 0};
         double[] longValRange = {-10.24, 10.08};
         longAcc = new CANframe("0245", longByteRange, (byte) 8, 
-            "Vehicle longitudinal acceleration", 0xFF, " m/s²", longValRange, 0.08);
+            "Vehicle longitudinal acceleration", 0xFF, " m/s^2", longValRange, 0.08);
 
         //Constructing CANframe obj of the vehicle lateral acceleration.
         byte[] latByteRange = {6, 7, 6, 0};
         double[] latValRange = {-10.24, 10.08};
         latAcc = new CANframe("0245", latByteRange, (byte) 8, 
-            "Vehicle longitudinal acceleration", 0xFF, " m/s²", latValRange, 0.08);
+            "Vehicle longitudinal acceleration", 0xFF, " m/s^2", latValRange, 0.08);
 
         //Retrieving the locations of the files to read from args.
-        String canMessagesFile = args[0];
-        //String gpsTrackFile = args[1];
+        //String gpsTrackFile = args[0];
+        String canMessagesFile = args[1];
 
-        //Reading in CANmessages.trc and filling canMsgMap with relevant data.
+        //Reading in "GPS Track.htm" and filling gpsCoords with relevant data.
+        //readGpsCoords(gpsTrackFile);
+        //Reading in "CANmessages.trc" and filling canMsgMap with relevant data.
         readCanMessages(canMessagesFile);
 
         //Printing all the messages in canMsgMap.

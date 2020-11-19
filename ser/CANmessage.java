@@ -9,7 +9,6 @@ public class CANmessage {
     private int[] decodedVal; //The int values of what is decoded from rawData.
     private String[] dataString; /* The decodedVal as strings with their
                                 * corresponding value and measurement unit.*/
-    private double[] latLong; //The GPS coordinates obtained from "GPS Track.htm"
 
     //Setter and getter for timeOffset.
     public void setTimeOffset(double timeOffset){
@@ -49,14 +48,6 @@ public class CANmessage {
     }
     public String[] getDataString(){
         return dataString;
-    }
-
-    //Setter and getter for latLong.
-    public void setLatLong(double[] latLong){
-        this.latLong = latLong;
-    }
-    public double[] getLatLong(){
-        return latLong;
     }
 }
 
