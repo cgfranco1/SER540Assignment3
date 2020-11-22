@@ -26,6 +26,8 @@ public class CANDataWriter {
     /*Int used to track what the time offset needs to be to insert the two
       CANmessages which will represent the GPS coordinates.*/
     private static int gpsTimeOffset;
+    //Int used to keep track of the gpsCoords index.
+    private static int gpsIndex;
 
     //CANframes used to query data.
     private static CANframe wheelAngle, displaySpeed, yawRate, latAcc, longAcc;
@@ -41,6 +43,8 @@ public class CANDataWriter {
           milisecond and so this int will be incremented by a 1000 after the
           insertion of lat and long messages.*/
         gpsTimeOffset = 1000;
+        //Initializing gpsIndex as 0 for the first index.
+        gpsIndex = 0;
 
         /*All values for the next 5 CANframe objects have been obtained from 
           the "CAN Frames Info.txt" file.*/
@@ -77,16 +81,72 @@ public class CANDataWriter {
             0.08);
 
         //Retrieving the locations of the files to read from args.
-        //String gpsTrackFile = args[0];
+        String gpsTrackFile = args[0];
         String canMessagesFile = args[1];
 
         //Reading in "GPS Track.htm" and filling gpsCoords with relevant data.
-        //readGpsCoords(gpsTrackFile);
+        readGpsCoords(gpsTrackFile);
         //Reading in "CANmessages.trc" and filling canMsgList with relevant data.
         readCanMessages(canMessagesFile);
 
         //Printing all the messages in canMsgList.
         printData();
+    }
+
+    static void readGpsCoords(String gpsFile) throws IOException {
+        try {
+            //Creating new buffered reader.
+            br = new BufferedReader(new FileReader(gpsFile));
+            //String used to represent each line.
+            String line = null;
+
+            //Skipping lines until the array with the GPS coordinates is found.
+            do {
+                line = br.readLine();
+            } while (!line.contains("var t"));
+
+            //Reading the first line of the array.
+            line = br.readLine();
+            //Using string builder to construct the coordinate strings.
+            StringBuilder sb = new StringBuilder();
+            /*Indicates if current character being read is part of the sequence
+              which represents one of the coordinate doubles.*/
+            boolean isDouble = false;
+
+            //Loop until the end of the array is found.
+            while (!line.contains("];")) {
+                //Iterates through each character of the line.
+                for (int i = 0; i < line.length(); i++) {
+                    //If the character corresponds to a coordinate point.
+                    if (Character.isDigit(line.charAt(i)) || 
+                        line.charAt(i) == '.') {
+                            //Appending the character to the coordinate string.
+                            sb.append(line.charAt(i));
+                            //Setting double flag as true.
+                            isDouble = true;
+                    //If the coordinate string being read in is completed.
+                    } else if (isDouble == true) {
+                        /*Add the coordinate to gpsCoords. The values are
+                          ordered such that they alternate between latitude and 
+                          longitude values starting with latitude.*/
+                        gpsCoords.add(sb.toString());
+                        //Initialize new StringBuilder to read next coordinate.
+                        sb = new StringBuilder();
+                        //Indicating that the double has finished its sequence.
+                        isDouble = false;
+                    }
+                }
+                //Reading in next line.
+                line = br.readLine();
+            }
+
+        } catch (FileNotFoundException e) {
+            //When the given file directory cannot be found.
+            System.out.println("Error: Unable to locate file: " + gpsFile);
+        } finally {
+            //Closing buffered reader.
+            br.close();
+        }
     }
 
     /* Method which reads the "CANmessages.trc" file line by line checking for
@@ -104,10 +164,9 @@ public class CANDataWriter {
             String[] lineArr;
 
             //Reading the first line and skipping over the commented header.
-            line = br.readLine();
-            while (line.charAt(0) == ';') {
-                    line = br.readLine();
-            }
+            do {
+                line = br.readLine();
+            } while (line.charAt(0) == ';');
 
             //Reading the rest of the file.
             while ((line = br.readLine()) != null) {
@@ -162,7 +221,7 @@ public class CANDataWriter {
 
         /*If the time offset is greater than gpsTimeOffset, then the GPS CAN
           messages are inserted first and gpsTimeOffset is incremented.*/
-        if (message.getTimeOffset() > gpsTimeOffset){
+        if (message.getTimeOffset() > gpsTimeOffset && gpsIndex < gpsCoords.size()){
             //Creating CANmessages for GPS lateral and longitudinal coordinates.
             CANmessage gLat = new CANmessage();
             CANmessage gLng = new CANmessage();
@@ -172,9 +231,14 @@ public class CANDataWriter {
             //Setting the data descriptions.
             gLat.setMessageDesc("Latitude");
             gLng.setMessageDesc("Longitude");
-            //Temporarily setting the GPS values to -1.
-            gLat.setDecodedVal(-1.0);
-            gLng.setDecodedVal(-1.0);
+            //Setting the decoded value to the ones held in gpsCoords.
+            gLat.setDecodedVal(Double.parseDouble(gpsCoords.get(gpsIndex)));
+            //gLat.setDecodedVal(-1.0);
+            //Also incrementing gpsIndex to point to the next value in the list.
+            gpsIndex += 1;
+            gLng.setDecodedVal(Double.parseDouble(gpsCoords.get(gpsIndex)));
+            //gLng.setDecodedVal(-1.0);
+            gpsIndex += 1;
             //Adding the GPS CANmessages to the array list.
             canMsgList.add(gLat);
             canMsgList.add(gLng);
@@ -259,14 +323,14 @@ public class CANDataWriter {
                 frameID = yawRate.getFrameID();
             }
             else if (canMsgList.get(i).getMessageDesc().equals("Latitude")){
-                frameID = "TEST";
+                frameID = "GLAT";
             }
             else if (canMsgList.get(i).getMessageDesc().equals("Longitude")){
-                frameID = "TEST";
+                frameID = "GLNG";
             }
 
-            System.out.printf("%-25.1f %-25s %-25.2f\n", canMsgList.get(i).getTimeOffset(),
-                              frameID, canMsgList.get(i).getDecodedVal());
+            System.out.printf("%-25.1f %-25s %-5.2f %s\n", canMsgList.get(i).getTimeOffset(),
+                              frameID, canMsgList.get(i).getDecodedVal(), canMsgList.get(i).getMessageDesc());
         }
     }
 }
