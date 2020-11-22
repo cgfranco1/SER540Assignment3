@@ -29,7 +29,7 @@ public class CANDataWriter {
     private static int gpsTimeOffset;
 
     //CANframes used to query data.
-    private static CANframe wheelAngle, displaySpeed, yawRate, longAcc, latAcc;
+    private static CANframe wheelAngle, displaySpeed, yawRate, latAcc, longAcc;
 
     //Buffered reader used to read in "CANmessages.trc" and "GPS Track.htm".
     private static BufferedReader br;
@@ -63,18 +63,18 @@ public class CANDataWriter {
         yawRate = new CANframe("0245", yawByteRange, (byte) 16, 
             "Vehicle yaw rate", 0xFFFF, "degrees/s", yawValRange, 0.01);
 
-        //Constructing CANframe obj of the vehicle longitudinal acceleration.
-        byte[] longByteRange = {5, 7, 5, 0};
-        double[] longValRange = {-10.24, 10.08};
-        longAcc = new CANframe("0245", longByteRange, (byte) 8, 
-            "Vehicle longitudinal acceleration", 0xFF, " m/s^2", longValRange, 
-            0.08);
-
         //Constructing CANframe obj of the vehicle lateral acceleration.
         byte[] latByteRange = {6, 7, 6, 0};
         double[] latValRange = {-10.24, 10.08};
         latAcc = new CANframe("0245", latByteRange, (byte) 8, 
             "Vehicle longitudinal acceleration", 0xFF, " m/s^2", latValRange, 
+            0.08);
+        
+        //Constructing CANframe obj of the vehicle longitudinal acceleration.
+        byte[] longByteRange = {5, 7, 5, 0};
+        double[] longValRange = {-10.24, 10.08};
+        longAcc = new CANframe("0245", longByteRange, (byte) 8, 
+            "Vehicle longitudinal acceleration", 0xFF, " m/s^2", longValRange, 
             0.08);
 
         //Retrieving the locations of the files to read from args.
@@ -235,7 +235,7 @@ public class CANDataWriter {
     }
 
     /* Method which prints the table containing the values of the data.
-     
+     */
     static void printData() {
         StringBuilder sb = new StringBuilder();
         sb.append("Time offset             |");
@@ -247,16 +247,27 @@ public class CANDataWriter {
         System.out.println(sb.toString());
 
         for(Map.Entry<Double, CANmessage> e : canMsgMap.entrySet()) {
-            String[] dataArr = e.getValue().getDataString();
-            String data = "";
-            if (dataArr.length > 1) {
-                data = String.join(",     ", dataArr);
-            } else {
-                data = dataArr[0];
+            String frameID = "frameId";
+            if (e.getValue().getMessageDesc().equals(wheelAngle.getDataDesc())){
+                frameID = wheelAngle.getFrameID();
             }
-            System.out.printf("%-25.1f %-25s %-25s\n", e.getKey(),
-                              e.getValue().getFrameID(), data);
+            else if (e.getValue().getMessageDesc().equals(displaySpeed.getDataDesc())){
+                frameID = displaySpeed.getFrameID();
+            }
+            else if (e.getValue().getMessageDesc().equals(yawRate.getDataDesc()) || 
+            e.getValue().getMessageDesc().equals(latAcc.getDataDesc()) || 
+            e.getValue().getMessageDesc().equals(longAcc.getDataDesc())){
+                frameID = yawRate.getFrameID();
+            }
+            else if (e.getValue().getMessageDesc().equals("Latitude")){
+                frameID = "TEST";
+            }
+            else if (e.getValue().getMessageDesc().equals("Longitude")){
+                frameID = "TEST";
+            }
+            
+            System.out.printf("%-25.1f %-25s %-25.1f\n", e.getKey(),
+                              frameID, e.getValue().getDecodedVal());
         }
     }
-    */
 }
