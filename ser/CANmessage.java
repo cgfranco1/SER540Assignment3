@@ -5,7 +5,7 @@
 public class CANmessage {
     private double timeOffset; //Time offset in ms of the message.
     private String messageDesc; //Description of the message.
-    private double decodedVal; //The int values of what is decoded from rawData.
+    private double decodedVal; //The value extracted from the message.
 
     //Setter and getter for timeOffset.
     public void setTimeOffset(double timeOffset){
