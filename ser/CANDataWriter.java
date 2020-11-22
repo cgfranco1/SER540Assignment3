@@ -87,7 +87,7 @@ public class CANDataWriter {
         readCanMessages(canMessagesFile);
 
         //Printing all the messages in canMsgMap.
-        //printData();
+        printData();
     }
 
     /* Method which reads the "CANmessages.trc" file line by line checking for
@@ -265,7 +265,7 @@ public class CANDataWriter {
             else if (e.getValue().getMessageDesc().equals("Longitude")){
                 frameID = "TEST";
             }
-            
+
             System.out.printf("%-25.1f %-25s %-25.1f\n", e.getKey(),
                               frameID, e.getValue().getDecodedVal());
         }
