@@ -4,11 +4,8 @@
 
 public class CANmessage {
     private double timeOffset; //Time offset in ms of the message.
-    private String frameID; //Frame ID of the message.
-    private String[] rawData; //Hex data bytes as a String array.
-    private int[] decodedVal; //The int values of what is decoded from rawData.
-    private String[] dataString; /* The decodedVal as strings with their
-                                * corresponding value and measurement unit.*/
+    private String messageDesc; //Description of the message.
+    private double decodedVal; //The int values of what is decoded from rawData.
 
     //Setter and getter for timeOffset.
     public void setTimeOffset(double timeOffset){
@@ -18,36 +15,20 @@ public class CANmessage {
         return timeOffset;
     }
 
-    //Setter and getter for frameID.
-    public void setFrameID(String frameID){
-        this.frameID = frameID;
+    //Setter and getter for messageDesc.
+    public void setMessageDesc(String messageDesc){
+        this.messageDesc = messageDesc;
     }
-    public String getFrameID(){
-        return frameID;
-    }
-
-    //Setter and getter for rawData.
-    public void setRawData(String[] rawData){
-        this.rawData = rawData;
-    }
-    public String[] getRawData(){
-        return rawData;
+    public String getMessageDesc(){
+        return messageDesc;
     }
 
     //Setter and getter for decodedVal.
-    public void setDecodedVal(int[] decodedVal){
+    public void setDecodedVal(double decodedVal){
         this.decodedVal = decodedVal;
     }
-    public int[] getDecodedVal(){
+    public double getDecodedVal(){
         return decodedVal;
-    }
-
-    //Setter and getter for dataString.
-    public void setDataString(String[] dataString){
-        this.dataString = dataString;
-    }
-    public String[] getDataString(){
-        return dataString;
     }
 }
 

@@ -1,4 +1,4 @@
-/* SER 540/494 - Assignment 2: Interpreting CAN Data
+/* SER 540/494 - Assignment 3: CAN Data Simulator and Curve Warnings
  * Carlos Franco
  * ASU Fall 2020
  * 
@@ -15,27 +15,36 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.Map;
 
 public class CANDataWriter {
-    /* Hashmap used to contain all the messages in "CANmessages.trc" which have
-     * a frame ID that matches one of the IDs listed in "CAN Frames Info.txt".
-     */
+    /*Hashmap used to contain all the messages in "CANmessages.trc" which have
+      a frame ID that matches one of the IDs listed in "CAN Frames Info.txt".*/
     private static Map<Double, CANmessage> canMsgMap;
-    //Buffered reader used to read in "CANmessages.trc" and "GPS Track.htm".
-    private static BufferedReader br;
     //Array used to contain the GLatLng values obtained from "GPS Track.htm".
-    private static String[] gpsCoords;
+    private static ArrayList<String> gpsCoords;
+    /*Int used to track what the time offset needs to be to insert the two
+      CANmessages which will represent the GPS coordinates.*/
+    private static int gpsTimeOffset;
+
     //CANframes used to query data.
     private static CANframe wheelAngle, displaySpeed, yawRate, longAcc, latAcc;
 
-    public static void main(String args[]) throws IOException {
-        //Initializing canMsgMap.
-        canMsgMap = new LinkedHashMap<Double, CANmessage>();
+    //Buffered reader used to read in "CANmessages.trc" and "GPS Track.htm".
+    private static BufferedReader br;
 
-        /* All values for the next 5 CANframe objects have been obtained from 
-         * the "CAN Frames Info.txt" file.
-         */
+    public static void main(String args[]) throws IOException {
+        //Initializing canMsgMap and gpsCoords.
+        canMsgMap = new LinkedHashMap<Double, CANmessage>();
+        gpsCoords = new ArrayList<>();
+        /*GPS message insertions will need to be done every thousandth
+          milisecond and so this int will be incremented by a 1000 after the
+          insertion of lat and long messages.*/
+        gpsTimeOffset = 1000;
+
+        /*All values for the next 5 CANframe objects have been obtained from 
+          the "CAN Frames Info.txt" file.*/
         //Constructing CANframe obj of the steering wheel angle.
         byte[] wheelByteRange = {1, 5, 2, 0};
         double[] wheelValRange = {-2048.0, 2047.0};
@@ -58,13 +67,15 @@ public class CANDataWriter {
         byte[] longByteRange = {5, 7, 5, 0};
         double[] longValRange = {-10.24, 10.08};
         longAcc = new CANframe("0245", longByteRange, (byte) 8, 
-            "Vehicle longitudinal acceleration", 0xFF, " m/s^2", longValRange, 0.08);
+            "Vehicle longitudinal acceleration", 0xFF, " m/s^2", longValRange, 
+            0.08);
 
         //Constructing CANframe obj of the vehicle lateral acceleration.
         byte[] latByteRange = {6, 7, 6, 0};
         double[] latValRange = {-10.24, 10.08};
         latAcc = new CANframe("0245", latByteRange, (byte) 8, 
-            "Vehicle longitudinal acceleration", 0xFF, " m/s^2", latValRange, 0.08);
+            "Vehicle longitudinal acceleration", 0xFF, " m/s^2", latValRange, 
+            0.08);
 
         //Retrieving the locations of the files to read from args.
         //String gpsTrackFile = args[0];
@@ -76,39 +87,67 @@ public class CANDataWriter {
         readCanMessages(canMessagesFile);
 
         //Printing all the messages in canMsgMap.
-        printData();
+        //printData();
     }
 
+    /* Method which reads the "CANmessages.trc" file line by line checking for
+     * data entries which match one of the three relevant frame IDs. The method
+     * will create CANmessage objects for every line that is found with a
+     * correct ID and put it into canMsgMap.
+     */
     static void readCanMessages(String msgFile) throws IOException {
         try {
+            //Creating new buffered reader.
             br = new BufferedReader(new FileReader(msgFile));
-            String line = null; //String used to represent each line.
-            String[] lineArr; //Array used to parse values from line.
+            //String used to represent each line.
+            String line = null;
+            //Array used to parse values from line.
+            String[] lineArr;
 
+            //Reading the first line and skipping over the commented header.
             line = br.readLine();
             while (line.charAt(0) == ';') {
                     line = br.readLine();
             }
 
+            //Reading the rest of the file.
             while ((line = br.readLine()) != null) {
-                lineArr = line.trim().split("\\s+"); //Parsing file line into array.
+                //Parsing file line into array.
+                lineArr = line.trim().split("\\s+");
+
                 //Checking if the frame ID matches one of the 3 relevant ones.
-                if(lineArr[3].equals(wheelAngle.getFrameID())) { //Frame ID equates to wheel angle.
-                    CANmessage wheelMessage = messageBuilder(lineArr, wheelAngle); //Create wheel message.
-                    canMsgMap.put(wheelMessage.getTimeOffset(), wheelMessage); //Put message in hashmap.
-                } else if (lineArr[3].equals(displaySpeed.getFrameID())) { //Same as before but for speed.
-                    CANmessage speedMessage = messageBuilder(lineArr, displaySpeed);
+                //If frame ID equates to wheel angle.
+                if(lineArr[3].equals(wheelAngle.getFrameID())) {
+                    //Create wheel message and put it in the linked hashmap.
+                    CANmessage wheelMessage = messageBuilder(lineArr, 
+                                                             wheelAngle);
+                    canMsgMap.put(wheelMessage.getTimeOffset(), wheelMessage);
+                //If frame ID equates to speed.
+                } else if (lineArr[3].equals(displaySpeed.getFrameID())) {
+                    //Create speed message and put it in the linked hashmap.
+                    CANmessage speedMessage = messageBuilder(lineArr, 
+                                                             displaySpeed);
                     canMsgMap.put(speedMessage.getTimeOffset(), speedMessage);
-                } else if (lineArr[3].equals(yawRate.getFrameID())) { //Same as before but for the remaining 3.
-                    CANmessage coordMessage = messageBuilder(lineArr, yawRate);
-                    canMsgMap.put(coordMessage.getTimeOffset(), coordMessage);
+                /*If frame ID equates to yaw rate, as well as longitudinal and 
+                  lateral acceleration.*/
+                } else if (lineArr[3].equals(yawRate.getFrameID())) {
+                    //Create messages for all three.
+                    CANmessage yawMessage = messageBuilder(lineArr, yawRate);
+                    CANmessage longMessage = messageBuilder(lineArr, longAcc);
+                    CANmessage latMessage = messageBuilder(lineArr, latAcc);
+                    //Put all three into the linked hashmap.
+                    canMsgMap.put(yawMessage.getTimeOffset(), yawMessage);
+                    canMsgMap.put(longMessage.getTimeOffset(), yawMessage);
+                    canMsgMap.put(latMessage.getTimeOffset(), yawMessage);
                 }
             }
 
-        } catch (FileNotFoundException e) { //Handles filenotfoundexception if the given file directory cannot be found.
+        } catch (FileNotFoundException e) {
+            //When the given file directory cannot be found.
             System.out.println("Error: Unable to locate file: " + msgFile);
         } finally {
-            br.close(); //Closing buffered reader.
+            //Closing buffered reader.
+            br.close();
         }
     }
 
@@ -116,36 +155,41 @@ public class CANDataWriter {
      * obtaining the decoded values. 
      */
     static CANmessage messageBuilder(String[] lineArr, CANframe frame) {
+        //Creating CANmessage object.
         CANmessage message = new CANmessage();
+        //Adding the time offset and data description.
         message.setTimeOffset(Double.parseDouble(lineArr[1]));
-        message.setFrameID(lineArr[3]);
+        message.setMessageDesc(frame.getDataDesc());
 
+        /*If the time offset is greater than gpsTimeOffset, then the GPS CAN
+          messages are inserted first and gpsTimeOffset is incremented.*/
+        if (message.getTimeOffset() > gpsTimeOffset){
+            //Creating CANmessages for GPS lateral and longitudinal coordinates.
+            CANmessage gLat = new CANmessage();
+            CANmessage gLng = new CANmessage();
+            //Setting the time offsets equal to the current gpsTimeOffset time.
+            gLat.setTimeOffset(gpsTimeOffset);
+            gLng.setTimeOffset(gpsTimeOffset);
+            //Setting the data descriptions.
+            gLat.setMessageDesc("Latitude");
+            gLng.setMessageDesc("Longitude");
+            //Temporarily setting the GPS values to -1.
+            gLat.setDecodedVal(-1.0);
+            gLng.setDecodedVal(-1.0);
+            //Putting the GPS CANmessages into the linked hashmap.
+            canMsgMap.put(gLat.getTimeOffset(), gLat);
+            canMsgMap.put(gLng.getTimeOffset(), gLng);
+            //Incrementing gpsTimeOffset.
+            gpsTimeOffset = gpsTimeOffset + 1000;
+        }
+
+        //Obtaining an array of all the byte data included in the line.
         int dataLength = Integer.parseInt(lineArr[4]);
         String[] data = Arrays.copyOfRange(lineArr, 5, 5 + dataLength);
-        message.setRawData(data);
-
-        int[] decodedValues;
-        String[] dataStr;
-        if (frame.getFrameID().equals("0245")) {
-            //Ordered as yaw rate, long acceleration and lat acceleration.
-            decodedValues = new int[3];
-            decodedValues[0] = convertRawToInt(data, yawRate.getDataLocation());
-            decodedValues[1] = convertRawToInt(data, longAcc.getDataLocation());
-            decodedValues[2] = convertRawToInt(data, latAcc.getDataLocation());
-
-            dataStr = new String[3]; 
-            dataStr[0] = convertIntToString(decodedValues[0], yawRate);
-            dataStr[1] = convertIntToString(decodedValues[1], longAcc);
-            dataStr[2] = convertIntToString(decodedValues[2], latAcc);
-        } else {
-            decodedValues = new int[1];
-            decodedValues[0] = convertRawToInt(data, frame.getDataLocation());
-
-            dataStr = new String[1]; 
-            dataStr[0] = convertIntToString(decodedValues[0], frame);
-        }
-        message.setDecodedVal(decodedValues);
-        message.setDataString(dataStr);
+        
+        //Extracting the message value and setting it in the CANmessage.
+        double decodedValue = decodeData(data, frame);
+        message.setDecodedVal(decodedValue);
 
         return message;
     }
@@ -153,39 +197,45 @@ public class CANDataWriter {
     /* Method which converts String data into int data which can be used for
      * obtaining the decoded values. 
      */
-    static int convertRawToInt(String[] rawData, byte[] dataLocation) {
+    static double decodeData(String[] rawData, CANframe frame) {
+        //Getting the data location array from the CANframe.
+        byte[] dataLocation = frame.getDataLocation();
+        //Reduce start byte by 1 since bytes are counted from 1 rather than 0.
         int startByte = dataLocation[0] - 1;
+        //Do not reduce end byte since copyOfRange is exclusive of last index.
         int endByte = dataLocation[2];
-        rawData = Arrays.copyOfRange(rawData, startByte, endByte);
+        //Creating new array which includes only targeted bytes.
+        String[] targetData = Arrays.copyOfRange(rawData, startByte, endByte);
+
+        //Using StringBuilder to merge strings from targetData.
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < rawData.length; i++) {
-            sb.append(rawData[i]);
+        for (int i = 0; i < targetData.length; i++) {
+            sb.append(targetData[i]);
         }
-        int targetData = Integer.parseInt(sb.toString(), 16);
-        int leftBitMask = ~(-1 << (dataLocation[1] + 1));
-        targetData = targetData & leftBitMask;
-        targetData = targetData >>> dataLocation[3];
-        targetData = targetData << dataLocation[3];
-        return targetData;
-    }
+        //Convert the StringBuilder string into an integer.
+        int extractedVal = Integer.parseInt(sb.toString(), 16);
 
-    /* Method which converts int data values into readable string data with the
-     * corresponding units of measurement. 
-     */
-    static String convertIntToString(int value, CANframe frame) {
-        double realVal = value * frame.getStepSize() + frame.getValRange()[0];
-        String msg = frame.getDataDesc() + ": " + 
-                     String.format("%.2f", realVal) + 
-                     frame.getUnitType();
-        return msg;
-    }
+        /*Now that the data has been refined down to the target bytes, some bit
+          manipulation is needed to further refine the data down to the target
+          bits provided in dataLocation.*/
+        //Creating a bit mask which sets all left bits to be excluded as 0.
+        int leftBitMask = ~(-1 << (frame.getDataSize() + 1));
+        //Masking extractedVal.
+        extractedVal = extractedVal & leftBitMask;
+        //Bit-shifting extractedVal right up to the the last bit to be included.
+        extractedVal = extractedVal >>> dataLocation[3];
+        //Bit-shifting exctractedVall left to move bits back into place.
+        extractedVal = extractedVal << dataLocation[3];
 
-    //Unfinished method.
-    //static void readGpsTrack(String gpsFile) {
-    //}
+        //Now converting the extracted int value into the value it represents.
+        double convertedVal = extractedVal * frame.getStepSize() + 
+                              frame.getValRange()[0];
+
+        return convertedVal;
+    }
 
     /* Method which prints the table containing the values of the data.
-     */
+     
     static void printData() {
         StringBuilder sb = new StringBuilder();
         sb.append("Time offset             |");
@@ -208,4 +258,5 @@ public class CANDataWriter {
                               e.getValue().getFrameID(), data);
         }
     }
+    */
 }
