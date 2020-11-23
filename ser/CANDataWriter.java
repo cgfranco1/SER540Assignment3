@@ -14,6 +14,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Formatter;
 import java.util.ArrayList;
 
 
@@ -42,7 +43,7 @@ public class CANDataWriter {
         /*GPS message insertions will need to be done every thousandth
           milisecond and so this int will be incremented by a 1000 after the
           insertion of lat and long messages.*/
-        gpsTimeOffset = 1000;
+        gpsTimeOffset = 0;
         //Initializing gpsIndex as 0 for the first index.
         gpsIndex = 0;
 
@@ -93,6 +94,14 @@ public class CANDataWriter {
         printData();
     }
 
+    /* Method which reads the "GPS Track.htm" file to search for the array "t"
+     * which contains the GLatLng objects needed to retrieve GPS data. Unlike
+     * readCanMessages method, this method does not actually create any of
+     * the CANmessage objects used to store data in canMsgList array list.
+     * Instead, the CANmessages which represent latitude and longitude points
+     * are generated in the messageBuilder method which will create a CANmessage
+     * for both latitude and longitude every 1000 ms starting at 0 ms.
+     */
     static void readGpsCoords(String gpsFile) throws IOException {
         try {
             //Creating new buffered reader.
@@ -233,11 +242,9 @@ public class CANDataWriter {
             gLng.setMessageDesc("Longitude");
             //Setting the decoded value to the ones held in gpsCoords.
             gLat.setDecodedVal(Double.parseDouble(gpsCoords.get(gpsIndex)));
-            //gLat.setDecodedVal(-1.0);
             //Also incrementing gpsIndex to point to the next value in the list.
             gpsIndex += 1;
             gLng.setDecodedVal(Double.parseDouble(gpsCoords.get(gpsIndex)));
-            //gLng.setDecodedVal(-1.0);
             gpsIndex += 1;
             //Adding the GPS CANmessages to the array list.
             canMsgList.add(gLat);
@@ -295,6 +302,22 @@ public class CANDataWriter {
                               frame.getValRange()[0];
 
         return convertedVal;
+    }
+
+    static void startSimulation() {
+        double time = 0.0;
+        StringBuilder sb = new StringBuilder();
+
+        System.out.println("Current Time | Steering Angle | Yaw Rate |" + 
+                           " Lateral Acc | Longitudinal Acc | GPS Lat, Long");
+
+        for (int i = 0; i < 433000; i++) {
+            time = i / 10;
+            sb.append(String.format("%9.1f ms |", time));
+            sb.append(String.format("%11.2f deg |", sang));
+        }
+
+        
     }
 
     /* Method which prints the table containing the values of the data.
