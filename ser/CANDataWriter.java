@@ -16,9 +16,12 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Formatter;
 import java.util.ArrayList;
+import javax.swing.*;
+import java.awt.event.*;
+import java.io.OutputStream;
+import java.io.PrintStream;
 
-
-public class CANDataWriter {
+public class CANDataWriter implements ActionListener {
     /*Arraylist used to contain all the messages in "CANmessages.trc" which have
       a frame ID that matches one of the IDs listed in "CAN Frames Info.txt".*/
     private static ArrayList<CANmessage> canMsgList;
@@ -37,6 +40,8 @@ public class CANDataWriter {
     private static BufferedReader br;
 
     public static void main(String args[]) throws IOException {
+
+        new CANDataWriter(); //init Gui 
         //Initializing canMsgList and gpsCoords.
         canMsgList = new ArrayList<>();
         gpsCoords = new ArrayList<>();
@@ -92,6 +97,37 @@ public class CANDataWriter {
 
         //Printing all the messages in canMsgList.
         printData();
+    }
+    
+    JTextArea textArea;
+    JLabel Label1;
+    CANDataWriter(){
+        JFrame f=new JFrame();//creating JFrame   
+        JButton b=new JButton("Start/reset");//creating JButton 
+        Label1=new JLabel();  // new Jlabel 
+        Label1.setBounds(40,25,100,30); // bounds for the label 
+        Label1.setText("Simulator"); // setting text for label 
+        b.setBounds(150,550,120,30);//x axis, y axis, width, height  
+        b.addActionListener(this);  // adding action listener   
+        textArea = new JTextArea();  // new text area
+        //textArea.setBounds(5,65,525,450);
+        JScrollPane scrollbar=new JScrollPane(textArea);
+        scrollbar.setBounds(5,65,575,450);
+        scrollbar.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        f.add(Label1);  // adding stuff to the frame
+        f.add(b);
+        f.getContentPane().add(scrollbar);
+        f.setSize(600,700);//400 width and 500 height 
+        f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // exit on close ability 
+        f.setLayout(null);//using no layout managers  
+        f.setVisible(true);//making the frame visible  
+        PrintStream out = new PrintStream( new CustomOutputStream(textArea) ); // redirecting console output to gui to run simluation
+        System.setOut(out); // system output
+        //System.setErr(out); // error output
+    } 
+    public void actionPerformed(ActionEvent e){  
+        System.out.println("hello Carlos Wink "); 
+     
     }
 
     /* Method which reads the "GPS Track.htm" file to search for the array "t"
