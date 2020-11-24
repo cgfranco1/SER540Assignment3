@@ -31,18 +31,22 @@ public class Simulator {
 
     public void startSimulation() {
 
+        //Represents the starting time of the simulation.
         long startTime = System.nanoTime();
+        //Represents the current time of the system.
+        long currentTime;
+        //Represents the difference between currentTime and startTime in ms.
         double timeOffset = 0.0;
+        //Stringbuilder used to write out the CAN values.
         StringBuilder sb;
 
         //Printing header.
 	    System.out.println("Current Time | Steering Angle | Vehicle Speed |" + 
-                           " Yaw Rate | Lateral Acc | Longitudinal Acc |" +
-                           " GPS Lat, Long");
+                           "    Yaw Rate    |  Lateral Acc  |" +
+                           " Longitudinal Acc | GPS Lat, Long");
 
-        for (int i = 0; i < 433000; i++) {
-            //Updating time.
-            timeOffset = i / 10;
+        //Loop until the end of CAN values is reached.
+        while (pointer < msgArr.length) {
             //Creating new StringBuilder.
             sb = new StringBuilder();
 
@@ -96,6 +100,7 @@ public class Simulator {
                 }
             }
 
+            //Appending all CAN values to the StringBuilder.
             sb.append(String.format("%9.1f ms |", timeOffset));
             sb.append(String.format("%11s deg |", canValues[0]));
             sb.append(String.format("%9s km/h |", canValues[1]));
@@ -104,11 +109,17 @@ public class Simulator {
             sb.append(String.format("%11s m/s^2 |", canValues[4]));
             sb.append(String.format(" (%s, %s)", canValues[5], canValues[6]));
             sb.append("\r");
-
+            //Printing out the CAN values.
             System.out.print(sb.toString());
+
+            //Getting current system time.
+            currentTime = System.nanoTime();
+            //Setting new time offset, rounded up to a single decimal.
+            timeOffset = Math.round((currentTime - startTime) / 100000.0) / 10.0;
         }
 
-        System.out.println("\nSimulation end");
+        //System.out.println("\nLast time offset: " + msgArr[pointer - 1].getTimeOffset());
+        //System.out.println(msgArr[pointer - 1].getMessageDesc() + ": " + msgArr[pointer - 1].getDecodedVal());
     }
 
     private void updateCanValues(int index, int decimals, double canVal) {
@@ -117,9 +128,7 @@ public class Simulator {
         //Adding value to canValues as a formatted string.
         canValues[index] = String.format(format, canVal);
         //Incrementing pointer to point to next CANmessage.
-        if (pointer < (msgArr.length -1)) {
-            pointer++;
-        }
+        pointer++;
     }
 
 }
