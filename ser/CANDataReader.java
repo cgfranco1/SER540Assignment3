@@ -1,12 +1,6 @@
-/* SER 540/494 - Assignment 3: CAN Data Simulator and Curve Warnings
- * Carlos Franco
- * ASU Fall 2020
- * 
- * This program is able to read in CAN data files denoted as "CANmessages.trc"
- * and an HTML file of a Google Maps tracing of GPS data, denoted as
- * "GPS Track.htm". The program takes in the directories of the two files as
- * arguements from the console and then prints out the queried data specified in
- * "CAN Frames Info.txt" in a neatly formatted manner.
+/* This class is a reimplementation of my Assignment 2 CANDataWriter, and is
+ * used to read/process data obtained from "CANmessages.trc" and
+ * "GPS Track.htm".
  */
 
 import java.io.BufferedReader;
@@ -14,34 +8,28 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Formatter;
 import java.util.ArrayList;
-import javax.swing.*;
-import java.awt.event.*;
-import java.io.OutputStream;
-import java.io.PrintStream;
 
-public class CANDataWriter implements ActionListener {
+public class CANDataReader {
     /*Arraylist used to contain all the messages in "CANmessages.trc" which have
       a frame ID that matches one of the IDs listed in "CAN Frames Info.txt".*/
-    private static ArrayList<CANmessage> canMsgList;
+    private ArrayList<CANmessage> canMsgList;
     //Array used to contain the GLatLng values obtained from "GPS Track.htm".
-    private static ArrayList<String> gpsCoords;
+    private ArrayList<String> gpsCoords;
     /*Int used to track what the time offset needs to be to insert the two
       CANmessages which will represent the GPS coordinates.*/
-    private static int gpsTimeOffset;
+    private int gpsTimeOffset;
     //Int used to keep track of the gpsCoords index.
-    private static int gpsIndex;
+    private int gpsIndex;
 
     //CANframes used to query data.
-    private static CANframe wheelAngle, displaySpeed, yawRate, latAcc, longAcc;
+    private CANframe wheelAngle, displaySpeed, yawRate, latAcc, longAcc;
 
     //Buffered reader used to read in "CANmessages.trc" and "GPS Track.htm".
-    private static BufferedReader br;
+    private BufferedReader br;
 
-    public static void main(String args[]) throws IOException {
+    public CANDataReader() {
 
-        new CANDataWriter(); //init Gui 
         //Initializing canMsgList and gpsCoords.
         canMsgList = new ArrayList<>();
         gpsCoords = new ArrayList<>();
@@ -76,7 +64,7 @@ public class CANDataWriter implements ActionListener {
         byte[] latByteRange = {6, 7, 6, 0};
         double[] latValRange = {-10.24, 10.08};
         latAcc = new CANframe("0245", latByteRange, (byte) 8, 
-            "Vehicle longitudinal acceleration", 0xFF, " m/s^2", latValRange, 
+            "Vehicle lateral acceleration", 0xFF, " m/s^2", latValRange, 
             0.08);
         
         //Constructing CANframe obj of the vehicle longitudinal acceleration.
@@ -86,49 +74,9 @@ public class CANDataWriter implements ActionListener {
             "Vehicle longitudinal acceleration", 0xFF, " m/s^2", longValRange, 
             0.08);
 
-        //Retrieving the locations of the files to read from args.
-        String gpsTrackFile = args[0];
-        String canMessagesFile = args[1];
-
-        //Reading in "GPS Track.htm" and filling gpsCoords with relevant data.
-        readGpsCoords(gpsTrackFile);
-        //Reading in "CANmessages.trc" and filling canMsgList with relevant data.
-        readCanMessages(canMessagesFile);
-
-        //Printing all the messages in canMsgList.
-        printData();
     }
     
-    JTextArea textArea;
-    JLabel Label1;
-    CANDataWriter(){
-        JFrame f=new JFrame();//creating JFrame   
-        JButton b=new JButton("Start/reset");//creating JButton 
-        Label1=new JLabel();  // new Jlabel 
-        Label1.setBounds(40,25,100,30); // bounds for the label 
-        Label1.setText("Simulator"); // setting text for label 
-        b.setBounds(150,550,120,30);//x axis, y axis, width, height  
-        b.addActionListener(this);  // adding action listener   
-        textArea = new JTextArea();  // new text area
-        //textArea.setBounds(5,65,525,450);
-        JScrollPane scrollbar=new JScrollPane(textArea);
-        scrollbar.setBounds(5,65,575,450);
-        scrollbar.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-        f.add(Label1);  // adding stuff to the frame
-        f.add(b);
-        f.getContentPane().add(scrollbar);
-        f.setSize(600,700);//400 width and 500 height 
-        f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // exit on close ability 
-        f.setLayout(null);//using no layout managers  
-        f.setVisible(true);//making the frame visible  
-        PrintStream out = new PrintStream( new CustomOutputStream(textArea) ); // redirecting console output to gui to run simluation
-        System.setOut(out); // system output
-        //System.setErr(out); // error output
-    } 
-    public void actionPerformed(ActionEvent e){  
-        System.out.println("hello Carlos Wink "); 
-     
-    }
+
 
     /* Method which reads the "GPS Track.htm" file to search for the array "t"
      * which contains the GLatLng objects needed to retrieve GPS data. Unlike
@@ -138,7 +86,7 @@ public class CANDataWriter implements ActionListener {
      * are generated in the messageBuilder method which will create a CANmessage
      * for both latitude and longitude every 1000 ms starting at 0 ms.
      */
-    static void readGpsCoords(String gpsFile) throws IOException {
+    public void readGpsCoords(String gpsFile) throws IOException {
         try {
             //Creating new buffered reader.
             br = new BufferedReader(new FileReader(gpsFile));
@@ -199,7 +147,7 @@ public class CANDataWriter implements ActionListener {
      * will create CANmessage objects for every line that is found with a
      * correct ID and add it to canMsgList.
      */
-    static void readCanMessages(String msgFile) throws IOException {
+    public void readCanMessages(String msgFile) throws IOException {
         try {
             //Creating new buffered reader.
             br = new BufferedReader(new FileReader(msgFile));
@@ -236,12 +184,13 @@ public class CANDataWriter implements ActionListener {
                 } else if (lineArr[3].equals(yawRate.getFrameID())) {
                     //Create messages for all three.
                     CANmessage yawMessage = messageBuilder(lineArr, yawRate);
-                    CANmessage longMessage = messageBuilder(lineArr, longAcc);
                     CANmessage latMessage = messageBuilder(lineArr, latAcc);
+                    CANmessage longMessage = messageBuilder(lineArr, longAcc);
                     //Add all three to the array list.
                     canMsgList.add(yawMessage);
-                    canMsgList.add(longMessage);
                     canMsgList.add(latMessage);
+                    canMsgList.add(longMessage);
+
                 }
             }
 
@@ -257,7 +206,7 @@ public class CANDataWriter implements ActionListener {
     /* Method which constructs message objects by parsing through the data and
      * obtaining the decoded values. 
      */
-    static CANmessage messageBuilder(String[] lineArr, CANframe frame) {
+    private CANmessage messageBuilder(String[] lineArr, CANframe frame) {
         //Creating CANmessage object.
         CANmessage message = new CANmessage();
         //Adding the time offset and data description.
@@ -265,7 +214,10 @@ public class CANDataWriter implements ActionListener {
         message.setMessageDesc(frame.getDataDesc());
 
         /*If the time offset is greater than gpsTimeOffset, then the GPS CAN
-          messages are inserted first and gpsTimeOffset is incremented.*/
+          messages are inserted first and gpsTimeOffset is incremented. The
+          check for the gpsIndex being less than gpsCoord's size is due to the
+          fact that the simulation runs for longer than the amount of GPS
+          coordinates available.*/
         if (message.getTimeOffset() > gpsTimeOffset && gpsIndex < gpsCoords.size()){
             //Creating CANmessages for GPS lateral and longitudinal coordinates.
             CANmessage gLat = new CANmessage();
@@ -340,25 +292,13 @@ public class CANDataWriter implements ActionListener {
         return convertedVal;
     }
 
-    static void startSimulation() {
-        double time = 0.0;
-        StringBuilder sb = new StringBuilder();
-
-        System.out.println("Current Time | Steering Angle | Yaw Rate |" + 
-                           " Lateral Acc | Longitudinal Acc | GPS Lat, Long");
-
-        for (int i = 0; i < 433000; i++) {
-            time = i / 10;
-            sb.append(String.format("%9.1f ms |", time));
-            sb.append(String.format("%11.2f deg |", sang));
-        }
-
-        
+    public CANmessage[] getMessages() {
+        return canMsgList.toArray(CANmessage[]::new);
     }
 
     /* Method which prints the table containing the values of the data.
      */
-    static void printData() {
+    private void printData() {
         StringBuilder sb = new StringBuilder();
         sb.append("Time offset             |");
         sb.append("Frame ID               ");
