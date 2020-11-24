@@ -350,30 +350,60 @@ public class CANDataWriter implements ActionListener {
         for (int i = 0; i < 433000; i++) {
             time = i / 10;
             sb.append(String.format("%9.1f ms |", time));
-            sb.append(String.format("%11.2f deg |", sang));
+           // sb.append(String.format("%11.2f deg |", sang));
         }
 
         
+    }
+    static int getcurve(Double x) {
+        if(x > 13.0) { // low speed curve =1 left 1 right -1
+            return 1;
+        }
+        if (x < -13.0) { 
+            return -1;
+        }
+        if(x > 2 && x < 13.0){// high speed curve = 2 left 2 right -2
+            return 2; 
+        }
+        if(x > -2 && x < -13.0) {
+            return -2;
+        }
+         return 0;
+
+        
+
     }
 
     /* Method which prints the table containing the values of the data.
      */
     static void printData() {
         StringBuilder sb = new StringBuilder();
-        sb.append("Time offset             |");
-        sb.append("Frame ID               ");
-        sb.append("|Data\n");
-        sb.append("------------------------+");
-        sb.append("------------------------");
-        sb.append("+------------------------");
-        System.out.println(sb.toString());
+        ArrayList<Curveobj>  curves= new ArrayList<Curveobj>();
+        double tmpspeed=0.0;
+        double tmplat=0.0;
+        double tmplon=0.0;
+        Boolean iscurve;
+        double startspeed=0.0;
+        double endspeed=0.0;
+        double avgspeed=0.0;
+        int counter =0;
+        int tmp2 =0;
+        //sb.append("Time offset             |");
+        //sb.append("Frame ID               ");
+        //sb.append("|Data\n");
+        //sb.append("------------------------+");
+        //sb.append("------------------------");
+        //sb.append("+------------------------");
+        //System.out.println(sb.toString());
 
         for(int i = 0; i < canMsgList.size(); i++) {
+            iscurve=false;
             String frameID = "frameId";
             if (canMsgList.get(i).getMessageDesc().equals(wheelAngle.getDataDesc())){
                 frameID = wheelAngle.getFrameID();
             }
             else if (canMsgList.get(i).getMessageDesc().equals(displaySpeed.getDataDesc())){
+               tmpspeed=canMsgList.get(i).getDecodedVal();
                 frameID = displaySpeed.getFrameID();
             }
             else if (canMsgList.get(i).getMessageDesc().equals(yawRate.getDataDesc()) || 
@@ -382,14 +412,61 @@ public class CANDataWriter implements ActionListener {
                 frameID = yawRate.getFrameID();
             }
             else if (canMsgList.get(i).getMessageDesc().equals("Latitude")){
+                tmplat= canMsgList.get(i).getDecodedVal();
                 frameID = "GLAT";
             }
             else if (canMsgList.get(i).getMessageDesc().equals("Longitude")){
+                tmplon= canMsgList.get(i).getDecodedVal();
                 frameID = "GLNG";
             }
+            
+            if (canMsgList.get(i).getMessageDesc().equals(yawRate.getDataDesc())) {
 
-            System.out.printf("%-25.1f %-25s %-5.2f %s\n", canMsgList.get(i).getTimeOffset(),
-                              frameID, canMsgList.get(i).getDecodedVal(), canMsgList.get(i).getMessageDesc());
+                Double  tmp=canMsgList.get(i).getDecodedVal();
+                tmp2= getcurve(tmp);
+  
+                if (tmp2==1|tmp2==-1|tmp2==2|tmp2==-2){
+                    iscurve=true;
+                }
+                else if (tmp2 == 0){
+                    iscurve = false;
+                }
+                
+                
+            }
+            if(iscurve == true){
+                startspeed = tmpspeed;
+                counter++;
+
+            }
+            if (iscurve==false) {
+               endspeed=tmpspeed ;
+               avgspeed=(startspeed+endspeed)/2;
+               curves.add(new Curveobj(tmplat, tmplon, tmp2 , avgspeed));
+            }
+            
+            if (tmp2 == 1){
+                System.out.println("curve Warning :low speed left curve" +" |lat-"+tmplat+" |long-"+tmplon+" |curve "+tmp2+" |speed "+avgspeed);
+                
+            }
+            else if (tmp2 == -1 ){
+                System.out.println("curve Warning :low speed right curve"+" |lat-"+tmplat+" |long "+tmplon+" |curve-"+tmp2+" |speed-"+avgspeed);
+                
+            }
+            else if (tmp2 == 2) {
+        
+                System.out.println("curve Warning :High speed left curve"+" |lat-"+tmplat+" |long-"+tmplon+" |curve-"+tmp2+" |speed-"+avgspeed);
+                
+            }
+            else if (tmp2 == -2) {
+                
+                System.out.println("curve Warning :High speed right curve"+" |lat"+tmplat+" |long"+tmplon+" |curve"+tmp2+" |speed"+avgspeed);
+            }
+
+            //System.out.printf("%-25.1f %-25s %-5.2f %s\n", canMsgList.get(i).getTimeOffset(),
+               //               frameID, canMsgList.get(i).getDecodedVal(), canMsgList.get(i).getMessageDesc());
+              
         }
+        System.out.println(curves.size());
     }
 }
