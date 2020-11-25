@@ -1,3 +1,7 @@
+/* This class is used as an object containing the various fields that need to
+ * be recorded of a curve. 
+ */ 
+
 public class Curve {
     private double[] gpsStart; //Represents the starting point of the curve.
     private double[] gpsEnd; //Represents the end point of the curve.

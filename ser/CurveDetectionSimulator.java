@@ -15,19 +15,14 @@ import java.io.IOException;
 public class CurveDetectionSimulator { //implements ActionListener {
    
     public static void main(String args[]) {
-        //Initializing GUI.
-        //new CurveDetectionSimulator();
         //Initializing CANDataReader.
-        CANDataReader dataReader = new CANDataReader(); 
-        //Retrieving the locations of the files to read from args.
-        String gpsTrackFile = args[0];
-        String canMessagesFile = args[1];
+        CANDataReader dataReader = new CANDataReader();
 
         try {
             //Reading in "GPS Track.htm".
-            dataReader.readGpsCoords(gpsTrackFile);
+            dataReader.readGpsCoords(args[0]);
             //Reading in "CANmessages.trc" and creating CANmessages.
-            dataReader.readCanMessages(canMessagesFile);
+            dataReader.readCanMessages(args[1]);
             //Initializing simulator with CAN message data.
              Simulator sim = new Simulator(dataReader.getMessages());
             //Running simulation.

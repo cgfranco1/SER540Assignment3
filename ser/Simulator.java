@@ -22,10 +22,24 @@ public class Simulator implements ActionListener{
     private String[] canValues;
     //Contains all of the curves detected from the first run of the simulator.
     private ArrayList<Curve> curveList;
-
+    //Flag to indicate if simulator is being ran for the first time.
+    private boolean curvesRecorded;
+    //Variables used for the GUI.
     public JTextArea textArea;
     JLabel Label1;
     public Simulator(CANmessage[] msgArr) {
+        //Initiating message array.
+        this.msgArr = msgArr;
+        //Initiating values array.
+        canValues = new String [7];
+        //Setting pointer to 0 and canValues to default "-" values.
+        resetValues();
+        //Initiating curve list.
+        curveList = new ArrayList<>();
+        //Setting curvesRecorded to false.
+        curvesRecorded = false;
+
+        //Setting up GUI.
         JFrame f=new JFrame();//creating JFrame   
         JButton b=new JButton("Start/reset");//creating JButton 
         Label1=new JLabel();  // new Jlabel 
@@ -46,14 +60,10 @@ public class Simulator implements ActionListener{
         f.setLayout(null);//using no layout managers  
         f.setVisible(true);//making the frame visible  
         
-        this.msgArr = msgArr;
-        canValues = new String [7];
-        resetValues();
-        curveList = new ArrayList<>();
-        
     }
 
     private void resetValues() {
+        //Set pointer to point at start of msgArr.
         pointer = 0;
         //Represents steering angle.
         canValues[0] = "-";
@@ -77,8 +87,6 @@ public class Simulator implements ActionListener{
     }
 
     public void startSimulation() {
-       
-
         //Represents the starting time of the simulation.
         long startTime = System.nanoTime();
         //Represents the current time of the system.
@@ -97,11 +105,13 @@ public class Simulator implements ActionListener{
         /*Keeps track of the number of times speed was recorded during the curve
           so as to calculate the average speed at the end of the curve.*/
         int numOfSpeeds = 0;
-
+        //Used to store and write out the curve status.
+        StringBuilder cs = new StringBuilder();
+        //Starting curve status.
+        cs.append("No curve detected.\n");
 
         //Loop until the end of CAN values is reached.
         while (pointer < msgArr.length) {
-            //textArea.setText(null);
             //Creating new StringBuilder.
             sb = new StringBuilder();
 
@@ -114,45 +124,52 @@ public class Simulator implements ActionListener{
             if(tempMsg.getTimeOffset() <= timeOffset) {
 
                 //If the next CANmessage's time offset matches the time.
-                if ((pointer + 1 < msgArr.length) && (msgArr[pointer + 1].getTimeOffset() <= timeOffset)) {
+                if ((pointer + 1 < msgArr.length) && 
+                    (msgArr[pointer + 1].getTimeOffset() <= timeOffset)) {
 
                     /*If the time offset of the next two CANmessages match the 
                       time in addition to the current CANmessage, then the 
                       CANmessages equates to yaw rate, lat acc and long acc.*/
-                    if ((pointer + 2 < msgArr.length) && (msgArr[pointer + 2].getTimeOffset() <= timeOffset)) {
+                    if ((pointer + 2 < msgArr.length) && 
+                        (msgArr[pointer + 2].getTimeOffset() <= timeOffset)) {
                         //Adding yaw rate value as string.
                         updateCanValues(2, 2, tempVal);
 
-                        /*If the absolute value of the yaw rate is greater than 
-                          or equal to 2, then the car is curving.*/
-                        if (tempVal > 2 || tempVal < -2) {
-                            //Set isCurving to true.
-                            isCurving = true;
-                            //If this is the first time the car is curving.
-                            if (!(currentCurve.curveStarted())) {
-                                //Add the starting point of the curve.
-                                currentCurve.setGpsStart(gpsCoords);
-                                //Set curve speed to fast.
-                                currentCurve.setCurveSpeed("Fast");
-                                //If yaw rate is positive.
-                                if (tempVal > 0) {
-                                    //Then curve is going left.
-                                    currentCurve.setCurveDirection("left");
-                                } else {
-                                    //Then curve is going right.
-                                    currentCurve.setCurveDirection("right");
+                        //Only check for curves when curves are not recorded.
+                        if (!curvesRecorded) {
+                            /*If the absolute value of the yaw rate is greater 
+                            than 2, then the car is curving.*/
+                            if (tempVal > 2 || tempVal < -2) {
+                                //Set isCurving to true.
+                                isCurving = true;
+                                //If this is the first time the car is curving.
+                                if (!(currentCurve.curveStarted())) {
+                                    //Add the starting point of the curve.
+                                    double[] s = {gpsCoords[0], gpsCoords[1]};
+                                    currentCurve.setGpsStart(s);
+                                    //Set curve speed to high speed.
+                                    currentCurve.setCurveSpeed("High speed");
+                                    //If yaw rate is positive.
+                                    if (tempVal > 0) {
+                                        //Then curve is going left.
+                                        currentCurve.setCurveDirection("left");
+                                    } else {
+                                        //Then curve is going right.
+                                        currentCurve.setCurveDirection("right");
+                                    }
                                 }
+                                /*If the absolute value of the yaw rate is
+                                greater than 13, then the curve is low speed.*/
+                                if (currentCurve.getCurveSpeed().equals("High speed") &&
+                                    (tempVal > 13 || tempVal < -13)) {
+                                        currentCurve.setCurveSpeed("Low speed");
+                                    }
+                            //When the car is not curving.
+                            } else {
+                                isCurving = false;
                             }
-                            /*If the absolute value of the yaw rate is greater
-                              than or equal to 13, then the curve is slow.*/
-                            if (currentCurve.getCurveSpeed().equals("Fast") &&
-                                (tempVal > 13 || tempVal < -13)) {
-                                    currentCurve.setCurveSpeed("Slow");
-                                }
-                        } else {
-                            isCurving = false;
                         }
-                        
+
                         //Getting value for lateral acceleration.
                         tempVal = msgArr[pointer].getDecodedVal();
                         //Adding lateral acceleration value as string.
@@ -194,36 +211,56 @@ public class Simulator implements ActionListener{
                 }
             }
 
-            //If currently on curve.
-            if (isCurving) {
-                sb.append("Processing curve...\n");
-            //If curve has ended.
-            } else if (currentCurve.curveStarted()) {
-                //Calculate the average speed of the curve.
-                double avgSpeed = currentCurve.getAvgSpeed() / numOfSpeeds;
-                //Set curve's average speed.
-                currentCurve.setAvgSpeed(avgSpeed);
-                //Set the end point of the curve.
-                currentCurve.setGpsEnd(gpsCoords);
-                //Print out values for the curve.
-                sb.append("Curve recorded! Speed: " + 
-                          currentCurve.getCurveSpeed() + ", Direction: " + 
-                          currentCurve.getCurveDirection() +
-                          ", Average speed: " + currentCurve.getAvgSpeed() + 
-                          ", Start point: " + 
-                          Arrays.toString(currentCurve.getGpsStart()) + 
-                          ", End point: " + 
-                          Arrays.toString(currentCurve.getGpsEnd()) + "\n\n");
-                //Add currentCurve to the curveList.
-                curveList.add(currentCurve);
-                //Create new curve to represent the currentCurve.
-                currentCurve = new Curve();
+            //Appending the status of the curve if curves haven't been recorded.
+            if (!curvesRecorded) {
+                //If currently on curve.
+                if (isCurving) {
+                    //Alert that curve has been detected.
+                    cs = new StringBuilder();
+                    cs.append(currentCurve.getCurveSpeed() + " "); 
+                    cs.append(currentCurve.getCurveDirection() + " curve");
+                    cs.append(" detected.\n");
+                
+                //If curve has ended or simulation is about to end.
+                } else if ((currentCurve.curveStarted()) || 
+                           (pointer == msgArr.length - 1)) {
+                    //Calculate the average speed of the curve.
+                    double avgSpeed = currentCurve.getAvgSpeed() / numOfSpeeds;
+                    //Set curve's average speed.
+                    currentCurve.setAvgSpeed(avgSpeed);
+                    //Set the end point of the curve.
+                    currentCurve.setGpsEnd(gpsCoords);
 
-            //If not on curve.
+                    //Alert that curve was recorded.
+                    cs = new StringBuilder();
+                    cs.append("Curve recorded! - Start: ");
+                    //Appending starting point to StringBuilder.
+                    double lat = currentCurve.getGpsStart()[0];
+                    double lng = currentCurve.getGpsStart()[1];
+                    cs.append(String.format("(%.6f, %.6f) End: ", lat, lng));
+                    //Appending ending point to StringBuilder.
+                    lat = currentCurve.getGpsEnd()[0];
+                    lng = currentCurve.getGpsEnd()[1];
+                    cs.append(String.format("(%.6f, %.6f) Average ", lat, lng));
+                    //Appending average speed to StringBuilder.
+                    cs.append(String.format("Speed: %.2f km/h", currentCurve.getAvgSpeed()));
+                    cs.append(" Direction: " + currentCurve.getCurveDirection());
+                    cs.append(" Recommended speed: " + currentCurve.getCurveSpeed() + "\n");
+
+                    //Add currentCurve to the curveList.
+                    curveList.add(currentCurve);
+                    //Create new curve to represent the currentCurve.
+                    currentCurve = new Curve();
+                }
+            //If curves have been recorded, append status of oncoming curves.
             } else {
-                sb.append("No curve detected.\n");
+                //TODO: Part 4 Curve warning goes here.
+                cs = new StringBuilder();
+                cs.append("No oncoming curves.\n");
             }
 
+            //Appending the curve status to the StringBuilder.
+            sb.append(cs.toString());
             //Appending the header to the StringBuilder.
             sb.append("Current Time | Steering Angle | Vehicle Speed |"); 
             sb.append("    Yaw Rate    |  Lateral Acc  |");
@@ -236,8 +273,7 @@ public class Simulator implements ActionListener{
             sb.append(String.format("%8s m/s^2 |", canValues[3]));
             sb.append(String.format("%11s m/s^2 |", canValues[4]));
             sb.append(String.format(" (%s, %s)", canValues[5], canValues[6]));
-            //sb.append("\r");
-            //Printing out the CAN values.
+            //Printing everything to the GUI.
             textArea.setText(sb.toString());
 
             //Getting current system time.
@@ -245,6 +281,9 @@ public class Simulator implements ActionListener{
             //Setting new time offset, rounded up to a single decimal.
             timeOffset = Math.round((currentTime - startTime) / 100000.0) / 10.0;
         }
+
+        //Setting curvesRecorded to true once the simulation is over.
+        curvesRecorded = true; 
     }
 
     private void updateCanValues(int index, int decimals, double canVal) {
