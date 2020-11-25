@@ -1,15 +1,24 @@
+import java.util.ArrayList;
+import java.util.Arrays;
+
 /* This class implements the simulation portion of the project, in which once
  * all of the data has been read in, this class will simulate reading the data
  * in at real time. 
  */
 public class Simulator {
 
+    //Contains all of the CAN messages collected from CANDataReader.
     private CANmessage[] msgArr;
+    /*Used to indicate the CANmessage from msgArr to be read on any given 
+      iteration.*/
     private int pointer;
+    /*Contains strings of the most recent values obtained from the msgArr for 
+      each CAN sensor.*/
     private String[] canValues;
+    //Contains all of the curves detected from the first run of the simulator.
+    private ArrayList<Curve> curveList;
 
     public Simulator(CANmessage[] msgArr) {
-        //timeOffset = 0.0;
         this.msgArr = msgArr;
         pointer = 0;
         canValues = new String [7];
@@ -27,6 +36,7 @@ public class Simulator {
         canValues[5] = "-";
         //Represents GPS longitude.
         canValues[6] = "-";
+        curveList = new ArrayList<>();
     }
 
     public void startSimulation() {
@@ -40,10 +50,16 @@ public class Simulator {
         //Stringbuilder used to write out the CAN values.
         StringBuilder sb;
 
-        //Printing header.
-	    System.out.println("Current Time | Steering Angle | Vehicle Speed |" + 
-                           "    Yaw Rate    |  Lateral Acc  |" +
-                           " Longitudinal Acc | GPS Lat, Long");
+        //Used to keep track of most recent curve.
+        Curve currentCurve = new Curve();
+        //Represents if the data currently being read is during a curve.
+        boolean isCurving = false;
+        //Represents the last set of coordinates.
+        double[] gpsCoords = new double[2];
+        /*Keeps track of the number of times speed was recorded during the curve
+          so as to calculate the average speed at the end of the curve.*/
+        int numOfSpeeds = 0;
+
 
         //Loop until the end of CAN values is reached.
         while (pointer < msgArr.length) {
@@ -67,6 +83,36 @@ public class Simulator {
                     if ((pointer + 2 < msgArr.length) && (msgArr[pointer + 2].getTimeOffset() <= timeOffset)) {
                         //Adding yaw rate value as string.
                         updateCanValues(2, 2, tempVal);
+
+                        /*If the absolute value of the yaw rate is greater than 
+                          or equal to 2, then the car is curving.*/
+                        if (tempVal > 2 || tempVal < -2) {
+                            //Set isCurving to true.
+                            isCurving = true;
+                            //If this is the first time the car is curving.
+                            if (!(currentCurve.curveStarted())) {
+                                //Add the starting point of the curve.
+                                currentCurve.setGpsStart(gpsCoords);
+                                //Set curve speed to fast.
+                                currentCurve.setCurveSpeed("Fast");
+                                //If yaw rate is positive.
+                                if (tempVal > 0) {
+                                    //Then curve is going left.
+                                    currentCurve.setCurveDirection("left");
+                                } else {
+                                    //Then curve is going right.
+                                    currentCurve.setCurveDirection("right");
+                                }
+                            }
+                            /*If the absolute value of the yaw rate is greater
+                              than or equal to 13, then the curve is slow.*/
+                            if (currentCurve.getCurveSpeed().equals("Fast") &&
+                                (tempVal > 13 || tempVal < -13)) {
+                                    currentCurve.setCurveSpeed("Slow");
+                                }
+                        } else {
+                            isCurving = false;
+                        }
                         
                         //Getting value for lateral acceleration.
                         tempVal = msgArr[pointer].getDecodedVal();
@@ -84,10 +130,14 @@ public class Simulator {
                     } else {
                         //Adding GPS latitude value as string.
                         updateCanValues(5, 6, tempVal);
+                        //Storing latitude in gpsCoords.
+                        gpsCoords[0] = tempVal;
                         //Getting value for GPS longitude.
                         tempVal = msgArr[pointer].getDecodedVal();
                         //Adding GPS longitude value as string.
                         updateCanValues(6, 6, tempVal);
+                        //Storing longitude in gpsCoords.
+                        gpsCoords[1] = tempVal;
                     }
 
                 //Else if time offset equates to steering angle.
@@ -97,9 +147,48 @@ public class Simulator {
                 //Else time offset equates to vehicle speed.
                 } else {
                     updateCanValues(1, 2, tempVal);
+                    if (isCurving) {
+                        double newAvg = currentCurve.getAvgSpeed() + tempVal;
+                        currentCurve.setAvgSpeed(newAvg);
+                        numOfSpeeds++;
+                    }
                 }
             }
 
+            //If currently on curve.
+            if (isCurving) {
+                sb.append("Processing curve...\n");
+            //If curve has ended.
+            } else if (currentCurve.curveStarted()) {
+                //Calculate the average speed of the curve.
+                double avgSpeed = currentCurve.getAvgSpeed() / numOfSpeeds;
+                //Set curve's average speed.
+                currentCurve.setAvgSpeed(avgSpeed);
+                //Set the end point of the curve.
+                currentCurve.setGpsEnd(gpsCoords);
+                //Print out values for the curve.
+                sb.append("Curve recorded! Speed: " + 
+                          currentCurve.getCurveSpeed() + ", Direction: " + 
+                          currentCurve.getCurveDirection() +
+                          ", Average speed: " + currentCurve.getAvgSpeed() + 
+                          ", Start point: " + 
+                          Arrays.toString(currentCurve.getGpsStart()) + 
+                          ", End point: " + 
+                          Arrays.toString(currentCurve.getGpsEnd()) + "\n\n");
+                //Add currentCurve to the curveList.
+                curveList.add(currentCurve);
+                //Create new curve to represent the currentCurve.
+                currentCurve = new Curve();
+
+            //If not on curve.
+            } else {
+                sb.append("No curve detected.\n");
+            }
+
+            //Appending the header to the StringBuilder.
+            sb.append("Current Time | Steering Angle | Vehicle Speed |"); 
+            sb.append("    Yaw Rate    |  Lateral Acc  |");
+            sb.append(" Longitudinal Acc | GPS Lat, Long\n");
             //Appending all CAN values to the StringBuilder.
             sb.append(String.format("%9.1f ms |", timeOffset));
             sb.append(String.format("%11s deg |", canValues[0]));
@@ -117,9 +206,6 @@ public class Simulator {
             //Setting new time offset, rounded up to a single decimal.
             timeOffset = Math.round((currentTime - startTime) / 100000.0) / 10.0;
         }
-
-        //System.out.println("\nLast time offset: " + msgArr[pointer - 1].getTimeOffset());
-        //System.out.println(msgArr[pointer - 1].getMessageDesc() + ": " + msgArr[pointer - 1].getDecodedVal());
     }
 
     private void updateCanValues(int index, int decimals, double canVal) {
@@ -130,5 +216,7 @@ public class Simulator {
         //Incrementing pointer to point to next CANmessage.
         pointer++;
     }
+
+
 
 }
