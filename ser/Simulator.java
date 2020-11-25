@@ -3,12 +3,8 @@
  * in at real time. 
  */
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.io.IOException;
 import javax.swing.*;
 import java.awt.event.*;
-import java.io.OutputStream;
-import java.io.PrintStream;
 
 public class Simulator implements ActionListener{
 
