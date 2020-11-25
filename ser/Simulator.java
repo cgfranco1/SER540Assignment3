@@ -1,11 +1,16 @@
-import java.util.ArrayList;
-import java.util.Arrays;
-
 /* This class implements the simulation portion of the project, in which once
  * all of the data has been read in, this class will simulate reading the data
  * in at real time. 
  */
-public class Simulator {
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.io.IOException;
+import javax.swing.*;
+import java.awt.event.*;
+import java.io.OutputStream;
+import java.io.PrintStream;
+
+public class Simulator implements ActionListener{
 
     //Contains all of the CAN messages collected from CANDataReader.
     private CANmessage[] msgArr;
@@ -18,10 +23,38 @@ public class Simulator {
     //Contains all of the curves detected from the first run of the simulator.
     private ArrayList<Curve> curveList;
 
+    public JTextArea textArea;
+    JLabel Label1;
     public Simulator(CANmessage[] msgArr) {
+        JFrame f=new JFrame();//creating JFrame   
+        JButton b=new JButton("Start/reset");//creating JButton 
+        Label1=new JLabel();  // new Jlabel 
+        Label1.setBounds(40,25,100,30); // bounds for the label 
+        Label1.setText("Simulator"); // setting text for label 
+        b.setBounds(150,550,120,30);//x axis, y axis, width, height  
+        b.addActionListener(this);  // adding action listener   
+        textArea = new JTextArea();  // new text area
+        //textArea.setBounds(5,65,525,450);
+        JScrollPane scrollbar=new JScrollPane(textArea);
+        scrollbar.setBounds(5,65,650,450);
+        scrollbar.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        f.add(Label1);  // adding stuff to the frame
+        f.add(b);
+        f.getContentPane().add(scrollbar);
+        f.setSize(700,700);//400 width and 500 height 
+        f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // exit on close ability 
+        f.setLayout(null);//using no layout managers  
+        f.setVisible(true);//making the frame visible  
+        
         this.msgArr = msgArr;
-        pointer = 0;
         canValues = new String [7];
+        resetValues();
+        curveList = new ArrayList<>();
+        
+    }
+
+    private void resetValues() {
+        pointer = 0;
         //Represents steering angle.
         canValues[0] = "-";
         //Represents vehicle speed.
@@ -36,10 +69,15 @@ public class Simulator {
         canValues[5] = "-";
         //Represents GPS longitude.
         canValues[6] = "-";
-        curveList = new ArrayList<>();
+    }
+    
+    public void actionPerformed(ActionEvent e) {  
+        resetValues();
+        startSimulation();
     }
 
     public void startSimulation() {
+       
 
         //Represents the starting time of the simulation.
         long startTime = System.nanoTime();
@@ -63,6 +101,7 @@ public class Simulator {
 
         //Loop until the end of CAN values is reached.
         while (pointer < msgArr.length) {
+            //textArea.setText(null);
             //Creating new StringBuilder.
             sb = new StringBuilder();
 
@@ -197,9 +236,9 @@ public class Simulator {
             sb.append(String.format("%8s m/s^2 |", canValues[3]));
             sb.append(String.format("%11s m/s^2 |", canValues[4]));
             sb.append(String.format(" (%s, %s)", canValues[5], canValues[6]));
-            sb.append("\r");
+            //sb.append("\r");
             //Printing out the CAN values.
-            System.out.print(sb.toString());
+            textArea.setText(sb.toString());
 
             //Getting current system time.
             currentTime = System.nanoTime();
